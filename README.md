@@ -1,3 +1,6 @@
+# DISCLAIMER:
+### This is a modified version of ng-packagr at a specific version to load postCSS config file and all of the plugins configured in there to apply to the build process of any Angular Library project which is not supported out-of-the-box in the time of publishing this.
+
 # ng-packagr
 
 > Compile and package Angular libraries in Angular Package Format (APF)
