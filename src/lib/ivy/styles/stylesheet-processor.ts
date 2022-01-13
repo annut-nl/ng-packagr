@@ -11,6 +11,8 @@ import { readFile } from '../../utils/fs';
 import { createHash } from 'crypto';
 import { extname } from 'path';
 
+import * as findUp from 'find-up';
+import * as postcssLoadConfig from "postcss-load-config"
 export enum CssUrl {
   inline = 'inline',
   none = 'none',
@@ -99,6 +101,19 @@ export class StylesheetProcessor {
     const postCssPlugins = [];
     if (this.cssUrl !== CssUrl.none) {
       postCssPlugins.push(postcssUrl({ url: this.cssUrl }));
+    }
+    const postcssConfigFiles = ['.postcssrc.json', '.postcssrc.js', 'postcss.config.js'];
+    const customPostcssConfig = findUp.sync(postcssConfigFiles);
+    try {
+      const postcssConfig = require(customPostcssConfig);
+      const { plugins } = postcssLoadConfig.sync(postcssConfig);
+      plugins.forEach(plugin => {
+        postCssPlugins.push(plugin);
+      });
+    } catch (error) {
+      if (error.code !== 'MODULE_NOT_FOUND') {
+        throw error
+      }
     }
 
     postCssPlugins.push(
