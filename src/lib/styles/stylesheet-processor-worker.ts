@@ -3,9 +3,9 @@ import { createHash } from 'crypto';
 import * as path from 'path';
 import postcss, { LazyResult } from 'postcss';
 import * as postcssUrl from 'postcss-url';
-import * as cssnano from 'cssnano';
 import { parentPort } from 'worker_threads';
 import * as postcssPresetEnv from 'postcss-preset-env';
+import { EsbuildExecutor } from '../esbuild/esbuild-executor';
 
 import { CssUrl, WorkerOptions, WorkerResult } from './stylesheet-processor';
 import { readFile } from '../utils/fs';
@@ -19,7 +19,10 @@ async function processCss({
   styleIncludePaths,
   basePath,
   cachePath,
+  targets,
+  alwaysUseWasm,
 }: WorkerOptions): Promise<WorkerResult> {
+  const esbuild = new EsbuildExecutor(alwaysUseWasm);
   const content = await readFile(filePath, 'utf8');
   let key: string | undefined;
 
@@ -48,13 +51,32 @@ async function processCss({
 
   // Render postcss (autoprefixing and friends)
   const result = await optimizeCss(filePath, renderedCss, browserslistData, cssUrl);
+  const warnings = result.warnings().map(w => w.toString());
+
+  const { code, warnings: esBuildWarnings } = await esbuild.transform(result.css, {
+    loader: 'css',
+    minify: true,
+    target: targets,
+    sourcefile: filePath,
+  });
+
+  if (esBuildWarnings.length > 0) {
+    warnings.push(...(await esbuild.formatMessages(esBuildWarnings, { kind: 'warning' })));
+  }
 
   // Add to cache
-  await cacache.put(cachePath, key, result.css);
+  await cacache.put(
+    cachePath,
+    key,
+    JSON.stringify({
+      css: code,
+      warnings,
+    }),
+  );
 
   return {
-    css: result.css,
-    warnings: result.warnings().map(w => w.toString()),
+    css: code,
+    warnings,
   };
 }
 
@@ -96,10 +118,13 @@ async function renderCss(
         .css.toString();
     }
     case '.less': {
-      const { css: content } = await (await import('less')).render(css, {
+      const { css: content } = await (
+        await import('less')
+      ).render(css, {
         filename: filePath,
         javascriptEnabled: true,
         paths: styleIncludePaths,
+        math: 'always',
       });
 
       return content;
@@ -139,19 +164,6 @@ function optimizeCss(filePath: string, css: string, browsers: string[], cssUrl?:
       autoprefixer: true,
       stage: 3,
     }),
-    cssnano({
-      preset: [
-        'default',
-        {
-          // Disable SVG optimizations, as this can cause optimizations which are not compatible in all browsers.
-          svgo: false,
-          // Disable `calc` optimizations, due to several issues. #16910, #16875, #17890
-          calc: false,
-          // Disable CSS rules sorted due to several issues #20693, https://github.com/ionic-team/ionic-framework/issues/23266 and https://github.com/cssnano/cssnano/issues/1054
-          cssDeclarationSorter: false,
-        },
-      ],
-    }),
   );
 
   return postcss(postCssPlugins).process(css, {
@@ -161,16 +173,13 @@ function optimizeCss(filePath: string, css: string, browsers: string[], cssUrl?:
 }
 
 function generateKey(content: string, browserslistData: string[]): string {
-  return createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('base64');
+  return createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('hex');
 }
 
 async function readCacheEntry(cachePath: string, key: string): Promise<WorkerResult | undefined> {
   const entry = await cacache.get.info(cachePath, key);
   if (entry) {
-    return {
-      css: await readFile(entry.path, 'utf8'),
-      warnings: [],
-    };
+    return JSON.parse(await readFile(entry.path, 'utf8'));
   }
 
   return undefined;

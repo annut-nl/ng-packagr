@@ -2,7 +2,68 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [12.2.5](https://github.com/ng-packagr/ng-packagr/compare/v12.2.4...v12.2.5) (2021-10-25)
+
+
+### Bug Fixes
+
+* RGBA converted to hex notation in component styles breaks IE11 ([b14d7e2](https://github.com/ng-packagr/ng-packagr/commit/b14d7e2272ccf427b6308af4314c1a2021d9a572))
+
+### [12.2.4](https://github.com/ng-packagr/ng-packagr/compare/v12.2.3...v12.2.4) (2021-10-20)
+
+
+### Bug Fixes
+
+* force less version 3.5 math behaviour ([2221e08](https://github.com/ng-packagr/ng-packagr/commit/2221e08b57ed9f5968783b2ac326a84fface1325)), closes [#2113](https://github.com/ng-packagr/ng-packagr/issues/2113)
+
+### [12.2.3](https://github.com/ng-packagr/ng-packagr/compare/v12.2.2...v12.2.3) (2021-10-08)
+
+
+### Bug Fixes
+
+* include `esbuild-check` in the dist package ([b2ba979](https://github.com/ng-packagr/ng-packagr/commit/b2ba979e07d3e194987a94b7cb7a8034ad1f6760))
+
+### [12.2.2](https://github.com/ng-packagr/ng-packagr/compare/v12.2.1...v12.2.2) (2021-09-22)
+
+
+### Bug Fixes
+
+* support WASM-based esbuild optimizer fallback ([9ee6bee](https://github.com/ng-packagr/ng-packagr/commit/9ee6bee992ac17f7ce383891164694640d427db0))
+
+### [12.2.1](https://github.com/ng-packagr/ng-packagr/compare/v12.2.0...v12.2.1) (2021-08-25)
+
+
+### Bug Fixes
+
+* make cache paths safe for windows ([480bbb4](https://github.com/ng-packagr/ng-packagr/commit/480bbb40aec4b62f2fd80c3e8929f1ffcf7489af))
+
+## [12.2.0](https://github.com/ng-packagr/ng-packagr/compare/v12.2.0-next.0...v12.2.0) (2021-08-04)
+
+### Performance
+
+* use esbuild as a CSS optimizer for component styles ([ceb81f9](https://github.com/ng-packagr/ng-packagr/commit/ceb81f9a2533369320a1b9890fa02440a73380a9))
+
+
+
+## [12.2.0-next.0](https://github.com/ng-packagr/ng-packagr/compare/v12.1.2...v12.2.0-next.0) (2021-07-23)
+
+
+### Performance
+
+* use esbuild as a CSS optimizer for component styles ([ceb81f9](https://github.com/ng-packagr/ng-packagr/commit/ceb81f9a2533369320a1b9890fa02440a73380a9))
+
+### [12.1.2](https://github.com/ng-packagr/ng-packagr/compare/v12.1.1...v12.1.2) (2021-07-13)
+
+
+### Bug Fixes
+
+* parse styles cache as JSON ([f778b92](https://github.com/ng-packagr/ng-packagr/commit/f778b92f9562d248a337b5177cdeaa22a8f7ab74))
+
 ### [12.1.1](https://github.com/ng-packagr/ng-packagr/compare/v12.1.0...v12.1.1) (2021-07-09)
+
+### Bug Fixes
+
+* avoid non-actionable template type-checker syntax diagnostics ([63598d0](https://github.com/ng-packagr/ng-packagr/commit/63598d0))
 
 ## [12.1.0](https://github.com/ng-packagr/ng-packagr/compare/v12.1.0-next.0...v12.1.0) (2021-06-25)
 
