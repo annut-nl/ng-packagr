@@ -7,12 +7,12 @@ const os_1 = require("os");
 const cacache = require("cacache");
 const postcss_1 = require("postcss");
 const postcssUrl = require("postcss-url");
-const cssnano = require("cssnano");
 const postcssPresetEnv = require("postcss-preset-env");
 const log = require("../../utils/log");
 const fs_1 = require("../../utils/fs");
 const crypto_1 = require("crypto");
 const path_1 = require("path");
+const esbuild_executor_1 = require("../../esbuild/esbuild-executor");
 const findUp = require("find-up");
 const postcssLoadConfig = require("postcss-load-config");
 var CssUrl;
@@ -34,8 +34,22 @@ class StylesheetProcessor {
         this.basePath = basePath;
         this.cssUrl = cssUrl;
         this.styleIncludePaths = styleIncludePaths;
+        this.esbuild = new esbuild_executor_1.EsbuildExecutor();
         log.debug(`determine browserslist for ${this.basePath}`);
+        // By default, browserslist defaults are too inclusive
+        // https://github.com/browserslist/browserslist/blob/83764ea81ffaa39111c204b02c371afa44a4ff07/index.js#L516-L522
+        // We change the default query to browsers that Angular support.
+        // https://angular.io/guide/browser-support
+        browserslist.defaults = [
+            'last 1 Chrome version',
+            'last 1 Firefox version',
+            'last 2 Edge major versions',
+            'last 2 Safari major versions',
+            'last 2 iOS major versions',
+            'Firefox ESR',
+        ];
         this.browserslistData = browserslist(undefined, { path: this.basePath });
+        this.targets = transformSupportedBrowsersToTargets(this.browserslistData);
         this.postCssProcessor = this.createPostCssPlugins();
     }
     async process(filePath) {
@@ -68,13 +82,22 @@ class StylesheetProcessor {
             to: filePath.replace(path_1.extname(filePath), '.css'),
         });
         const warnings = result.warnings().map(w => w.toString());
+        const { code, warnings: esBuildWarnings } = await this.esbuild.transform(result.css, {
+            loader: 'css',
+            minify: true,
+            target: this.targets,
+            sourcefile: filePath,
+        });
+        if (esBuildWarnings.length > 0) {
+            warnings.push(...(await this.esbuild.formatMessages(esBuildWarnings, { kind: 'warning' })));
+        }
         // Add to cache
         await cacache.put(cachePath, key, JSON.stringify({
-            css: result.css,
+            css: code,
             warnings,
         }));
         warnings.forEach(msg => log.warn(msg));
-        return result.css;
+        return code;
     }
     createPostCssPlugins() {
         const postCssPlugins = [];
@@ -99,18 +122,6 @@ class StylesheetProcessor {
             browsers: this.browserslistData,
             autoprefixer: true,
             stage: 3,
-        }), cssnano({
-            preset: [
-                'default',
-                {
-                    // Disable SVG optimizations, as this can cause optimizations which are not compatible in all browsers.
-                    svgo: false,
-                    // Disable `calc` optimizations, due to several issues. #16910, #16875, #17890
-                    calc: false,
-                    // Disable CSS rules sorted due to several issues #20693, https://github.com/ionic-team/ionic-framework/issues/23266 and https://github.com/cssnano/cssnano/issues/1054
-                    cssDeclarationSorter: false,
-                },
-            ],
         }));
         return postcss_1.default(postCssPlugins);
     }
@@ -150,6 +161,7 @@ class StylesheetProcessor {
                     filename: filePath,
                     javascriptEnabled: true,
                     paths: this.styleIncludePaths,
+                    math: 'always',
                 });
                 return content;
             }
@@ -174,7 +186,7 @@ class StylesheetProcessor {
 }
 exports.StylesheetProcessor = StylesheetProcessor;
 function generateKey(content, browserslistData) {
-    return crypto_1.createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('base64');
+    return crypto_1.createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('hex');
 }
 async function readCacheEntry(cachePath, key) {
     const entry = await cacache.get.info(cachePath, key);
@@ -182,5 +194,32 @@ async function readCacheEntry(cachePath, key) {
         return JSON.parse(await fs_1.readFile(entry.path, 'utf8'));
     }
     return undefined;
+}
+function transformSupportedBrowsersToTargets(supportedBrowsers) {
+    const transformed = [];
+    // https://esbuild.github.io/api/#target
+    const esBuildSupportedBrowsers = new Set(['safari', 'firefox', 'edge', 'chrome', 'ios']);
+    for (const browser of supportedBrowsers) {
+        let [browserName, version] = browser.split(' ');
+        // browserslist uses the name `ios_saf` for iOS Safari whereas esbuild uses `ios`
+        if (browserName === 'ios_saf') {
+            browserName = 'ios';
+            // browserslist also uses ranges for iOS Safari versions but only the lowest is required
+            // to perform minimum supported feature checks. esbuild also expects a single version.
+            [version] = version.split('-');
+        }
+        if (browserName === 'ie') {
+            transformed.push('edge12');
+        }
+        else if (esBuildSupportedBrowsers.has(browserName)) {
+            if (browserName === 'safari' && version === 'TP') {
+                // esbuild only supports numeric versions so `TP` is converted to a high number (999) since
+                // a Technology Preview (TP) of Safari is assumed to support all currently known features.
+                version = '999';
+            }
+            transformed.push(browserName + version);
+        }
+    }
+    return transformed.length ? transformed : undefined;
 }
 //# sourceMappingURL=stylesheet-processor.js.map

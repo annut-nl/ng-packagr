@@ -5,13 +5,14 @@ const crypto_1 = require("crypto");
 const path = require("path");
 const postcss_1 = require("postcss");
 const postcssUrl = require("postcss-url");
-const cssnano = require("cssnano");
 const worker_threads_1 = require("worker_threads");
 const postcssPresetEnv = require("postcss-preset-env");
+const esbuild_executor_1 = require("../esbuild/esbuild-executor");
 const stylesheet_processor_1 = require("./stylesheet-processor");
 const fs_1 = require("../utils/fs");
 const ngPackagrVersion = require('../../package.json').version;
-async function processCss({ filePath, browserslistData, cssUrl, styleIncludePaths, basePath, cachePath, }) {
+async function processCss({ filePath, browserslistData, cssUrl, styleIncludePaths, basePath, cachePath, targets, alwaysUseWasm, }) {
+    const esbuild = new esbuild_executor_1.EsbuildExecutor(alwaysUseWasm);
     const content = await fs_1.readFile(filePath, 'utf8');
     let key;
     if (!content.includes('@import') && !content.includes('@use')) {
@@ -35,11 +36,24 @@ async function processCss({ filePath, browserslistData, cssUrl, styleIncludePath
     }
     // Render postcss (autoprefixing and friends)
     const result = await optimizeCss(filePath, renderedCss, browserslistData, cssUrl);
+    const warnings = result.warnings().map(w => w.toString());
+    const { code, warnings: esBuildWarnings } = await esbuild.transform(result.css, {
+        loader: 'css',
+        minify: true,
+        target: targets,
+        sourcefile: filePath,
+    });
+    if (esBuildWarnings.length > 0) {
+        warnings.push(...(await esbuild.formatMessages(esBuildWarnings, { kind: 'warning' })));
+    }
     // Add to cache
-    await cacache.put(cachePath, key, result.css);
+    await cacache.put(cachePath, key, JSON.stringify({
+        css: code,
+        warnings,
+    }));
     return {
-        css: result.css,
-        warnings: result.warnings().map(w => w.toString()),
+        css: code,
+        warnings,
     };
 }
 async function renderCss(filePath, css, basePath, styleIncludePaths) {
@@ -78,6 +92,7 @@ async function renderCss(filePath, css, basePath, styleIncludePaths) {
                 filename: filePath,
                 javascriptEnabled: true,
                 paths: styleIncludePaths,
+                math: 'always',
             });
             return content;
         }
@@ -108,18 +123,6 @@ function optimizeCss(filePath, css, browsers, cssUrl) {
         browsers,
         autoprefixer: true,
         stage: 3,
-    }), cssnano({
-        preset: [
-            'default',
-            {
-                // Disable SVG optimizations, as this can cause optimizations which are not compatible in all browsers.
-                svgo: false,
-                // Disable `calc` optimizations, due to several issues. #16910, #16875, #17890
-                calc: false,
-                // Disable CSS rules sorted due to several issues #20693, https://github.com/ionic-team/ionic-framework/issues/23266 and https://github.com/cssnano/cssnano/issues/1054
-                cssDeclarationSorter: false,
-            },
-        ],
     }));
     return postcss_1.default(postCssPlugins).process(css, {
         from: filePath,
@@ -127,15 +130,12 @@ function optimizeCss(filePath, css, browsers, cssUrl) {
     });
 }
 function generateKey(content, browserslistData) {
-    return crypto_1.createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('base64');
+    return crypto_1.createHash('sha1').update(ngPackagrVersion).update(content).update(browserslistData.join('')).digest('hex');
 }
 async function readCacheEntry(cachePath, key) {
     const entry = await cacache.get.info(cachePath, key);
     if (entry) {
-        return {
-            css: await fs_1.readFile(entry.path, 'utf8'),
-            warnings: [],
-        };
+        return JSON.parse(await fs_1.readFile(entry.path, 'utf8'));
     }
     return undefined;
 }

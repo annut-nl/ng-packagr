@@ -5,10 +5,12 @@ export declare enum CssUrl {
 export interface WorkerOptions {
     filePath: string;
     basePath: string;
+    targets: string[];
     browserslistData: string[];
     cssUrl?: CssUrl;
     styleIncludePaths?: string[];
     cachePath: string;
+    alwaysUseWasm: boolean;
 }
 export interface WorkerResult {
     css: string;
@@ -22,6 +24,8 @@ export declare class StylesheetProcessor {
     private browserslistData;
     private worker;
     private readonly cachePath;
+    private targets;
+    private alwaysUseWasm;
     constructor(basePath: string, cssUrl?: CssUrl, styleIncludePaths?: string[]);
     process(filePath: string): any;
 }

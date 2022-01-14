@@ -1,6 +1,6 @@
 {
   "name": "ng-packagr",
-  "version": "12.1.1",
+  "version": "12.2.5",
   "description": "Compile and package Angular libraries in Angular Package Format (APF)",
   "keywords": [
     "apf",
@@ -29,7 +29,7 @@
   "main": "./public_api.js",
   "typings": "./public_api.d.ts",
   "dependencies": {
-    "@rollup/plugin-commonjs": "^19.0.0",
+    "@rollup/plugin-commonjs": "^20.0.0",
     "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^13.0.0",
     "ajv": "^8.0.0",
@@ -37,9 +37,9 @@
     "browserslist": "^4.16.1",
     "cacache": "^15.0.6",
     "chokidar": "^3.5.1",
-    "commander": "^7.0.0",
-    "cssnano": "^5.0.0",
+    "commander": "^8.0.0",
     "dependency-graph": "^0.11.0",
+    "esbuild-wasm": "^0.12.15",
     "find-cache-dir": "^3.3.1",
     "find-up": "5.0.0",
     "glob": "^7.1.6",
@@ -58,8 +58,11 @@
     "sass": "^1.32.8",
     "stylus": "^0.54.8"
   },
+  "optionalDependencies": {
+    "esbuild": "^0.12.15"
+  },
   "peerDependencies": {
-    "@angular/compiler-cli": "^12.0.0 || ^12.1.0-next.0",
+    "@angular/compiler-cli": "^12.0.0 || ^12.2.0-next.0",
     "tslib": "^2.1.0",
     "typescript": "~4.2.3 || ~4.3.2"
   }
